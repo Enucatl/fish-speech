@@ -75,6 +75,7 @@ filelists/
 # -----------
 *.wav
 *.mp3
+*.mp4
 *.flac
 *.ogg
 *.m4a

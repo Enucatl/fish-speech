@@ -100,7 +100,7 @@ def train(cfg: DictConfig) -> tuple[dict, dict]:
         # resume weights only is disabled for auto-resume
         if cfg.get("resume_weights_only") and auto_resume is False:
             log.info("Resuming weights only!")
-            ckpt = torch.load(ckpt_path, map_location=model.device)
+            ckpt = torch.load(ckpt_path, map_location=model.device, weights_only=False)
             if "state_dict" in ckpt:
                 ckpt = ckpt["state_dict"]
             err = model.load_state_dict(ckpt, strict=False)

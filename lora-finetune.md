@@ -83,7 +83,7 @@ single pass:
 
 1. **Convert** — each file is converted to 24 kHz mono WAV via ffmpeg
    and cached in `_tmp_converted/` so the step is skipped on reruns.
-2. **Diarize** *(optional)* — if a HuggingFace token is provided,
+2. **Diarize** *(optional, but strongly recommended)* — if a HuggingFace token is provided,
    pyannote 3.1 identifies the dominant speaker and discards all other
    segments (audience questions, applause, host intros). Nearby segments
    from the same speaker separated by less than 1.5 s are merged before
@@ -99,20 +99,10 @@ single pass:
    each chunk with 4 parallel workers and exponential-backoff retries.
    A `--keywords-file` (one term per line) can be passed to boost
    recognition of proper names or domain-specific vocabulary.
-6. **Correct** *(optional)* — if a Google API key is provided, Gemini
+6. **Correct** *(optional, but strongly recommended)* — if a Google API key is provided, Gemini
    post-processes all transcripts for one audio file in a single
    context-aware call, correcting spelling and punctuation while
    preserving the keywords list. Batches of 30 chunks run in parallel.
-
-The minimal invocation for Italian audio:
-
-```bash
-uv run python tools/preprocess/preprocess_audio.py \
-    --input-dir /path/to/recordings \
-    --output-dir data/raw/speaker \
-    --deepgram-api-key $DEEPGRAM_API_KEY \
-    --language it
-```
 
 With Gemini correction and a keywords file:
 
@@ -122,20 +112,8 @@ uv run python tools/preprocess/preprocess_audio.py \
     --output-dir data/raw/speaker \
     --deepgram-api-key $DEEPGRAM_API_KEY \
     --google-api-key $GOOGLE_API_KEY \
-    --keywords-file tools/preprocess/my_keywords.txt \
-    --language it
-```
-
-With speaker diarization (useful if recordings include audience questions
-or a host introduction):
-
-```bash
-uv run python tools/preprocess/preprocess_audio.py \
-    --input-dir /path/to/recordings \
-    --output-dir data/raw/speaker \
-    --deepgram-api-key $DEEPGRAM_API_KEY \
     --huggingface-token $HF_TOKEN \
-    --language it
+    --keywords-file tools/preprocess/my_keywords.txt \
 ```
 
 The script is resumable: converted and diarized WAVs are cached, and the
@@ -165,9 +143,9 @@ uv run python tools/preprocess/review_server.py \
 ```
 
 Open `http://localhost:8765` to play each clip alongside its raw and
-Gemini-corrected transcript. Edits are saved to `corrections.csv` and
-merged into `metadata.csv` on the next run. Entire source files can be
-masked from the dataset via `masked_sources.txt`.
+Gemini-corrected transcript. Edits are saved to `corrections.csv`.
+Entire source files can be masked from the dataset via `masked_sources.txt`, so
+that it's easy to exclude low-quality samples.
 
 ### Stage 3 — Format conversion for Fish-Speech
 
@@ -177,11 +155,13 @@ files in a flat directory. The conversion script symlinks the audio
 `.lab`:
 
 ```bash
-uv run python tools/preprocess/prepare_dataset.py
+uv run python tools/preprocess/prepare_dataset.py \
+    --metadata data/raw/speaker/metadata.csv \
+    --output-dir data/speaker
 ```
 
 The script reads both `metadata.csv` and `corrections.csv` (if present),
-with corrections taking precedence, and writes to `data/barbero/`.
+with corrections taking precedence, and writes to `data/speaker/`.
 
 ### Stage 4 — VQ token extraction
 
@@ -190,7 +170,7 @@ trains on. This is a one-time pass and takes roughly 1–2× realtime on
 GPU:
 
 ```bash
-uv run python tools/vqgan/extract_vq.py data/barbero \
+uv run python tools/vqgan/extract_vq.py data/speaker \
     --num-workers 1 --batch-size 16 \
     --config-name modded_dac_vq \
     --checkpoint-path checkpoints/s2-pro/codec.pth
@@ -203,7 +183,7 @@ single group under `data/protos/`:
 
 ```bash
 uv run python tools/llama/build_dataset.py \
-    --input data/barbero --output data/protos \
+    --input data/speaker --output data/protos \
     --text-extension .lab --num-workers 4
 ```
 

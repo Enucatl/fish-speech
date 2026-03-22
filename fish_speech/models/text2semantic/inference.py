@@ -541,7 +541,7 @@ def generate_long(
     assert 0 < top_p <= 1, "top_p must be in (0, 1]"
     assert 0 < temperature < 2, "temperature must be in (0, 2)"
 
-    use_prompt = bool(prompt_text) and bool(prompt_tokens)
+    use_prompt = bool(prompt_text) and prompt_tokens is not None
     if use_prompt and isinstance(prompt_text, str):
         prompt_text = [prompt_text]
         prompt_tokens = [prompt_tokens]

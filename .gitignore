@@ -113,3 +113,10 @@ ffprobe.exe
 # ----------
 /*.test.sh
 asr-label*
+
+# Training artifacts
+lightning_logs/
+lora_checkpoints/
+
+# Dev tooling
+.claude/

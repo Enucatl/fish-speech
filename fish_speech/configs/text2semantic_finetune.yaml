@@ -4,17 +4,17 @@ defaults:
 
 project: text2semantic_finetune_dual_ar
 max_length: 4096
-pretrained_ckpt_path: checkpoints/openaudio-s1-mini
+pretrained_ckpt_path: checkpoints/s2-pro
 
 # Lightning Trainer
 trainer:
-  accumulate_grad_batches: 1
+  accumulate_grad_batches: 4
   gradient_clip_val: 1.0
   gradient_clip_algorithm: "norm"
-  max_steps: 10000
+  max_steps: 400
   precision: bf16-true
   limit_val_batches: 10
-  val_check_interval: 100
+  val_check_interval: 50
   # strategy:
   #   find_unused_parameters: true
   #   static_graph: true 
@@ -22,7 +22,7 @@ trainer:
 # Dataset Configuration
 tokenizer:
   _target_: fish_speech.tokenizer.FishTokenizer
-  model_path: ${pretrained_ckpt_path}/tokenizer.tiktoken
+  model_path: ${pretrained_ckpt_path}
 
 # Dataset Configuration
 train_dataset:
@@ -30,27 +30,27 @@ train_dataset:
   proto_files:
     - data/protos
   tokenizer: ${tokenizer}
-  causal: true
+  causal: false
   max_length: ${max_length}
   use_speaker: false
-  interactive_prob: 0.7
+  interactive_prob: 1.0
 
 val_dataset:
   _target_: fish_speech.datasets.semantic.AutoTextSemanticInstructionIterableDataset
   proto_files:
     - data/protos
   tokenizer: ${tokenizer}
-  causal: true
+  causal: false
   max_length: ${max_length}
   use_speaker: false
-  interactive_prob: 0.7
+  interactive_prob: 1.0
 
 data:
   _target_: fish_speech.datasets.semantic.SemanticDataModule
   train_dataset: ${train_dataset}
   val_dataset: ${val_dataset}
   num_workers: 4
-  batch_size: 4
+  batch_size: 1
   tokenizer: ${tokenizer}
   max_length: ${max_length}
 
@@ -67,20 +67,25 @@ model:
   optimizer:
     _target_: torch.optim.AdamW
     _partial_: true
-    lr: 1e-4
-    weight_decay: 0
+    lr: 1e-5
+    weight_decay: 0.01
     betas: [0.9, 0.95]
     eps: 1e-5
 
   lr_scheduler:
-    _target_: torch.optim.lr_scheduler.LambdaLR
+    _target_: torch.optim.lr_scheduler.CosineAnnealingLR
     _partial_: true
-    lr_lambda:
-      _target_: fish_speech.scheduler.get_constant_schedule_with_warmup_lr_lambda
-      _partial_: true
-      num_warmup_steps: 10
+    T_max: 400
+    eta_min: 1e-6
 
 # Callbacks
 callbacks:
   model_checkpoint:
-    every_n_train_steps: ${trainer.val_check_interval}
+    every_n_train_steps: 100
+  audio_sample:
+    _target_: fish_speech.callbacks.AudioSampleCallback
+    text: "<|speaker:0|>Fermi tutti! Questo programma può contenère riferimenti espliciti e si rivolge ad un pubblico adulto. ... e non è adatto... ai minori!"
+    codec_checkpoint_path: checkpoints/s2-pro/codec.pth
+    reference_audio_path: references/barbero/74_La_crisi_del_Trecento_recessione_e_Innovazione_-_ExtraBarbero_Grattacielo_Intesa_Sanpaolo_2019_0027.wav
+    reference_text: "ha avuto i suoi alti e bassi. Quando vi dicevo che nel Medioevo per secoli crescono, beh, noi abbiamo abbastanza indizi del fatto che faceva caldo."
+    audio_format: mp3
